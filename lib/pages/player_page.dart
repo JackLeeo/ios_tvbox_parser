@@ -36,10 +36,8 @@ class _PlayerPageState extends State<PlayerPage> {
   }
 
   Future<void> _initPlayer() async {
-    // 优先通过 Node.js 解析真实播放地址
     String realUrl = await ApiService().getPlayUrl(widget.site, widget.flag, widget.videoUrl);
 
-    // 如果解析失败，回退到公共解析接口
     if (realUrl.isEmpty) {
       final base = AppConstants.parseInterfaces[_parserIndex];
       realUrl = '$base${Uri.encodeComponent(widget.videoUrl)}';
