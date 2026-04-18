@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:hls_proplayer/hls_proplayer.dart';
+import 'package:video_player/video_player.dart';
+import 'package:chewie/chewie.dart';
 import '../utils/constants.dart';
 
 class NativePlayerPage extends StatefulWidget {
@@ -19,9 +20,11 @@ class NativePlayerPage extends StatefulWidget {
 }
 
 class _NativePlayerPageState extends State<NativePlayerPage> {
-  String _currentParseUrl = '';
+  late VideoPlayerController _videoPlayerController;
+  ChewieController? _chewieController;
   int _currentInterfaceIndex = 0;
   bool _isLoading = true;
+  String _currentParseUrl = '';
 
   @override
   void initState() {
@@ -30,11 +33,39 @@ class _NativePlayerPageState extends State<NativePlayerPage> {
   }
 
   void _buildParseUrl() {
-    // 使用解析接口将视频页面 URL 转换为可播放的流地址
     final parseBase = AppConstants.parseInterfaces[_currentInterfaceIndex];
     setState(() {
       _currentParseUrl = '$parseBase${widget.videoUrl}';
     });
+    _initializePlayer(_currentParseUrl);
+  }
+
+  Future<void> _initializePlayer(String url) async {
+    _videoPlayerController = VideoPlayerController.networkUrl(Uri.parse(url));
+    
+    await _videoPlayerController.initialize();
+    
+    _chewieController = ChewieController(
+      videoPlayerController: _videoPlayerController,
+      autoPlay: true,
+      looping: false,
+      allowFullScreen: true,
+      allowMuting: true,
+      showControls: true,
+      materialProgressColors: ChewieProgressColors(
+        playedColor: Colors.blue,
+        handleColor: Colors.blue,
+        backgroundColor: Colors.grey,
+        bufferedColor: Colors.grey.shade700,
+      ),
+      placeholder: Container(
+        color: Colors.black,
+        child: const Center(child: CircularProgressIndicator()),
+      ),
+      autoInitialize: true,
+    );
+    
+    setState(() => _isLoading = false);
   }
 
   void _switchInterface(int index) {
@@ -42,7 +73,16 @@ class _NativePlayerPageState extends State<NativePlayerPage> {
       _currentInterfaceIndex = index;
       _isLoading = true;
     });
+    _chewieController?.dispose();
+    _videoPlayerController.dispose();
     _buildParseUrl();
+  }
+
+  @override
+  void dispose() {
+    _videoPlayerController.dispose();
+    _chewieController?.dispose();
+    super.dispose();
   }
 
   @override
@@ -72,27 +112,11 @@ class _NativePlayerPageState extends State<NativePlayerPage> {
         ],
       ),
       body: Center(
-        child: _currentParseUrl.isEmpty
+        child: _isLoading
             ? const CircularProgressIndicator()
-            : HlsPlayer(
-                url: _currentParseUrl,
-                mode: Mode.recorded,
-                autoplay: true,
-                looping: false,
-                controlsTheme: const HlsControlsTheme(
-                  progressActiveColor: Colors.blue,
-                  progressInactiveColor: Colors.grey,
-                  liveIndicatorColor: Colors.red,
-                  iconColor: Colors.white,
-                  iconSize: 24.0,
-                ),
-                placeholderBuilder: (ctx) => const Center(
-                  child: CircularProgressIndicator(color: Colors.blue),
-                ),
-                bufferingIndicatorBuilder: (ctx) => const Center(
-                  child: CircularProgressIndicator(color: Colors.blue),
-                ),
-              ),
+            : _chewieController != null
+                ? Chewie(controller: _chewieController!)
+                : const CircularProgressIndicator(),
       ),
     );
   }
