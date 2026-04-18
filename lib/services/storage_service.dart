@@ -1,6 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../models/video.dart';
+import '../utils/constants.dart';
 
 class StorageService {
   static final StorageService _instance = StorageService._internal();
@@ -13,6 +14,29 @@ class StorageService {
     _prefs = await SharedPreferences.getInstance();
   }
 
+  // ========== 配置源 ==========
+  Future<void> saveSourceUrl(String url) async {
+    await _prefs.setString(AppConstants.keySourceUrl, url);
+  }
+
+  String? getSourceUrl() {
+    return _prefs.getString(AppConstants.keySourceUrl);
+  }
+
+  Future<void> saveSourceContent(String content) async {
+    await _prefs.setString(AppConstants.keySourceContent, content);
+  }
+
+  String? getSourceContent() {
+    return _prefs.getString(AppConstants.keySourceContent);
+  }
+
+  Future<void> clearSource() async {
+    await _prefs.remove(AppConstants.keySourceUrl);
+    await _prefs.remove(AppConstants.keySourceContent);
+  }
+
+  // ========== 收藏 ==========
   static const String _favoriteKey = 'favorites';
 
   List<VideoItem> getFavorites() {
