@@ -1,8 +1,7 @@
-const bridge = require('bridge');
+const bridge = require('flutter-bridge'); // 注意：node_flutter 使用 'flutter-bridge'
 const fs = require('fs');
 const path = require('path');
 
-// 加载 drpy 引擎
 const drpyPath = path.join(__dirname, 'drpy2.min.js');
 if (fs.existsSync(drpyPath)) {
   require(drpyPath);
@@ -13,7 +12,7 @@ if (fs.existsSync(drpyPath)) {
 
 bridge.on('parse', (msg) => {
   try {
-    const { requestId, action, payload } = JSON.parse(msg);
+    const { requestId, action, payload } = typeof msg === 'string' ? JSON.parse(msg) : msg;
     let result;
     
     switch (action) {
