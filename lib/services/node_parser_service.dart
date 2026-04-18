@@ -14,32 +14,43 @@ class NodeParserService {
   Future<void> init() async {
     if (_readyCompleter.isCompleted) return;
 
-    // 启动 Node.js 运行时，自动加载 nodejs-project/main.js
-    await Nodejs.start();
+    try {
+      await Nodejs.start();
 
-    _subscription = Nodejs.onMessageReceived.listen((event) {
-      final channel = event['channelName'] as String?;
-      final message = event['message'];
+      _subscription = Nodejs.onMessageReceived.listen((event) {
+        final channel = event['channelName'] as String?;
+        final message = event['message'];
 
-      if (channel == 'node_ready') {
-        _readyCompleter.complete();
-      } else if (channel == 'parse_result') {
-        final data = message is String ? jsonDecode(message) : message as Map<String, dynamic>;
-        final requestId = data['requestId'] as String;
-        _pendingRequests[requestId]?.complete(data);
-        _pendingRequests.remove(requestId);
-      } else if (channel == 'parse_error') {
-        final error = message is String ? jsonDecode(message) : message as Map<String, dynamic>;
-        final requestId = error['requestId'] as String;
-        _pendingRequests[requestId]?.completeError(error['error']);
-        _pendingRequests.remove(requestId);
-      }
-    });
+        if (channel == 'node_ready') {
+          _readyCompleter.complete();
+        } else if (channel == 'parse_result') {
+          final data = message is String ? jsonDecode(message) : message as Map<String, dynamic>;
+          final requestId = data['requestId'] as String;
+          _pendingRequests[requestId]?.complete(data);
+          _pendingRequests.remove(requestId);
+        } else if (channel == 'parse_error') {
+          final error = message is String ? jsonDecode(message) : message as Map<String, dynamic>;
+          final requestId = error['requestId'] as String;
+          _pendingRequests[requestId]?.completeError(error['error']);
+          _pendingRequests.remove(requestId);
+        }
+      });
 
-    await _readyCompleter.future.timeout(const Duration(seconds: 10));
+      // 等待 Node.js 就绪，最多 5 秒，超时则放弃
+      await _readyCompleter.future.timeout(const Duration(seconds: 5));
+      print('Node.js 引擎已就绪');
+    } catch (e) {
+      print('Node.js 启动失败或超时: $e');
+      // 不抛出异常，后续请求将自动回退到公共解析接口
+    }
   }
 
   Future<Map<String, dynamic>> _sendRequest(String action, Map<String, dynamic> payload) async {
+    // 如果 Node.js 未就绪，直接抛出异常（调用方会回退）
+    if (!_readyCompleter.isCompleted) {
+      throw Exception('Node.js 未就绪');
+    }
+
     final requestId = DateTime.now().millisecondsSinceEpoch.toString();
     final request = jsonEncode({'requestId': requestId, 'action': action, 'payload': payload});
 
@@ -68,6 +79,6 @@ class NodeParserService {
 
   void dispose() {
     _subscription?.cancel();
-    //Nodejs.stop();
+    // node_flutter 不支持 stop，不调用
   }
 }
