@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_spinkit/flutter_spinkit.dart';
-import '../services/config_service.dart';
-import '../models/source.dart';
+import '../services/source_parser.dart';
+import '../services/storage_service.dart';
+import '../utils/extensions.dart';
 import 'home_page.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -13,124 +13,107 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   final TextEditingController _controller = TextEditingController();
-  final ConfigService _configService = ConfigService();
+  final StorageService _storage = StorageService();
   bool _isLoading = false;
-  String? _errorMessage;
 
-  Future<void> _importAndGo() async {
-    final input = _controller.text.trim();
-    if (input.isEmpty) {
-      setState(() => _errorMessage = '请输入配置源');
-      return;
-    }
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedSource();
+  }
 
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      // 保存输入内容
-      await _configService.saveConfig(input);
-      // 测试解析
-      final config = await _configService.loadConfig();
-      if (config != null) {
-        // 解析成功，跳转到主页
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const HomePage()),
-          );
-        }
-      } else {
-        setState(() => _errorMessage = '配置解析失败，请检查内容');
-      }
-    } catch (e) {
-      setState(() => _errorMessage = '导入失败: $e');
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+  void _loadSavedSource() {
+    final savedUrl = _storage.getSourceUrl();
+    final savedContent = _storage.getSourceContent();
+    if (savedUrl != null) {
+      _controller.text = savedUrl;
+    } else if (savedContent != null) {
+      _controller.text = savedContent;
     }
   }
 
-  Future<void> _pasteFromClipboard() async {
-    final data = await Clipboard.getData('text/plain');
-    if (data?.text != null) {
-      _controller.text = data!.text!;
+  Future<void> _saveAndApply() async {
+    final input = _controller.text.trim();
+    if (input.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请输入配置源')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      // 验证解析
+      final config = await SourceParser().parseSource(input);
+      
+      // 保存
+      if (input.startsWith('http://') || input.startsWith('https://')) {
+        await _storage.saveSourceUrl(input);
+        await _storage.saveSourceContent(''); // 清空旧内容
+      } else {
+        await _storage.saveSourceContent(input);
+        await _storage.saveSourceUrl(''); // 清空旧URL
+      }
+
+      if (mounted) {
+        // 跳转到主页并传递配置
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => HomePage(config: config, sourceInput: input),
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('解析失败: $e')),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('导入配置源')),
+      appBar: AppBar(title: const Text('设置配置源')),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(20),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Text(
-              '请输入TVBox配置源URL或Base64编码的内容',
-              style: TextStyle(color: Colors.grey, fontSize: 14),
+              '请输入 TVBox 配置源\n（支持 URL 或 Base64 编码内容）',
+              style: TextStyle(fontSize: 16),
+              textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 20),
             TextField(
               controller: _controller,
-              maxLines: 8,
-              style: const TextStyle(color: Colors.white, fontSize: 14),
+              maxLines: 5,
               decoration: InputDecoration(
-                hintText: '粘贴配置源URL或Base64内容...',
-                hintStyle: const TextStyle(color: Colors.grey),
+                hintText: '例如：https://xxx.com/source.json\n或 Base64 编码的配置',
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: Colors.grey),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: Colors.blue),
-                ),
+                filled: true,
+                fillColor: Colors.grey[900],
               ),
+              style: const TextStyle(color: Colors.white),
             ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                ElevatedButton.icon(
-                  onPressed: _pasteFromClipboard,
-                  icon: const Icon(Icons.paste),
-                  label: const Text('粘贴'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.grey[800],
-                  ),
-                ),
-                const Spacer(),
-                if (_errorMessage != null)
-                  Expanded(
-                    child: Text(
-                      _errorMessage!,
-                      style: const TextStyle(color: Colors.red, fontSize: 12),
-                      textAlign: TextAlign.end,
+            const SizedBox(height: 20),
+            _isLoading
+                ? const CircularProgressIndicator()
+                : ElevatedButton(
+                    onPressed: _saveAndApply,
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 50),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
+                    child: const Text('保存并进入'),
                   ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton.icon(
-              onPressed: _isLoading ? null : _importAndGo,
-              icon: _isLoading
-                  ? const SpinKitFadingCircle(color: Colors.white, size: 20)
-                  : const Icon(Icons.check),
-              label: const Text('导入并开始使用'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Divider(color: Colors.grey),
-            const SizedBox(height: 20),
-            const Text(
-              '提示：\n- 支持直接输入配置源URL\n- 支持粘贴Base64编码的配置内容\n- 配置将保存在本地，下次启动自动加载',
-              style: TextStyle(color: Colors.grey, fontSize: 12),
-            ),
           ],
         ),
       ),
