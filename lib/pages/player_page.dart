@@ -13,61 +13,23 @@ class PlayerPage extends StatefulWidget {
 }
 
 class _PlayerPageState extends State<PlayerPage> {
-  // 状态：0 = 显示WebView搜索结果，让用户点选；1 = 已捕获视频，原生播放
-  int _stage = 0;
-  
+  // WebView 相关
   InAppWebViewController? _webViewController;
+  bool _showWebView = true;          // 当前是否显示 WebView
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  // 原生播放器相关
   VideoPlayerController? _videoController;
   ChewieController? _chewieController;
-  String? _capturedUrl;
-  String? _errorMessage;
+  String? _videoUrl;
+
+  // 当前解析线路
   int _currentParserIndex = 0;
 
-  String get _parserUrl {
-    return '${AppConstants.parseInterfaces[_currentParserIndex]}${Uri.encodeComponent(widget.keyword)}';
-  }
-
-  void _switchParser(int index) {
-    if (_stage != 0) return;
-    setState(() {
-      _currentParserIndex = index;
-      _errorMessage = null;
-    });
-    _webViewController?.loadUrl(urlRequest: URLRequest(url: WebUri(_parserUrl)));
-  }
-
-  /// 初始化原生播放器
-  Future<void> _initPlayer(String url) async {
-    try {
-      _videoController = VideoPlayerController.networkUrl(Uri.parse(url));
-      await _videoController!.initialize();
-      _chewieController = ChewieController(
-        videoPlayerController: _videoController!,
-        autoPlay: true,
-        allowFullScreen: true,
-        showControls: true,
-        fullScreenByDefault: false,
-        materialProgressColors: ChewieProgressColors(
-          playedColor: Colors.blue,
-          handleColor: Colors.blue,
-          backgroundColor: Colors.grey.shade800,
-          bufferedColor: Colors.grey.shade600,
-        ),
-      );
-      setState(() {
-        _stage = 1;
-        _capturedUrl = url;
-      });
-    } catch (e) {
-      setState(() => _errorMessage = '播放出错: $e');
-    }
-  }
-
-  /// 嗅探到视频地址
-  void _onUrlCaptured(String url) {
-    if (_stage != 0) return;
-    _webViewController?.stopLoading();
-    _initPlayer(url);
+  @override
+  void initState() {
+    super.initState();
   }
 
   @override
@@ -77,11 +39,75 @@ class _PlayerPageState extends State<PlayerPage> {
     super.dispose();
   }
 
+  String get _parserUrl {
+    return '${AppConstants.parseInterfaces[_currentParserIndex]}${Uri.encodeComponent(widget.keyword)}';
+  }
+
+  void _switchParser(int index) {
+    if (!_showWebView) return;
+    setState(() {
+      _currentParserIndex = index;
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    _webViewController?.loadUrl(
+      urlRequest: URLRequest(url: WebUri(_parserUrl)),
+    );
+  }
+
+  /// 当嗅探到真实视频流地址时调用
+  Future<void> _onVideoUrlCaptured(String url) async {
+    if (!_showWebView) return;
+    
+    // 停止 WebView 加载，隐藏 WebView
+    _webViewController?.stopLoading();
+    
+    setState(() {
+      _showWebView = false;
+      _isLoading = true;
+    });
+    
+    // 初始化原生播放器
+    try {
+      _videoController = VideoPlayerController.networkUrl(Uri.parse(url));
+      await _videoController!.initialize();
+
+      _chewieController = ChewieController(
+        videoPlayerController: _videoController!,
+        autoPlay: true,
+        looping: false,
+        allowFullScreen: true,
+        allowMuting: true,
+        showControls: true,
+        fullScreenByDefault: false,
+        autoInitialize: true,
+        showOptions: true,
+        materialProgressColors: ChewieProgressColors(
+          playedColor: Colors.blue,
+          handleColor: Colors.blue,
+          backgroundColor: Colors.grey.shade800,
+          bufferedColor: Colors.grey.shade600,
+        ),
+      );
+
+      setState(() {
+        _videoUrl = url;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = '原生播放器初始化失败: $e';
+        _isLoading = false;
+        _showWebView = true;  // 失败则退回 WebView
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: _stage == 0
+      appBar: _showWebView
           ? AppBar(
               title: Text(widget.keyword),
               actions: [
@@ -103,53 +129,56 @@ class _PlayerPageState extends State<PlayerPage> {
                 ),
               ],
             )
-          : null,
-      body: _stage == 0
+          : null, // 原生播放时隐藏 AppBar（全屏时自动隐藏）
+      body: _showWebView
           ? Stack(
               children: [
-                // 可见的WebView，让用户手动点击搜索结果
+                // 可见的 WebView，让用户手动选择剧集
                 InAppWebView(
                   initialUrlRequest: URLRequest(url: WebUri(_parserUrl)),
                   initialSettings: InAppWebViewSettings(
                     javaScriptEnabled: true,
                     useShouldInterceptRequest: true,
-                    supportZoom: false,
                   ),
-                  onWebViewCreated: (c) => _webViewController = c,
+                  onWebViewCreated: (controller) {
+                    _webViewController = controller;
+                  },
+                  // 核心：拦截所有网络请求，嗅探视频流
                   shouldInterceptRequest: (controller, request) async {
                     final url = request.url.toString();
-                    // 当用户点击某个结果进入播放页后，我们会在此处拦截到视频流
+                    // 一旦出现 .m3u8 或 .mp4，立即拦截并切换
                     if (url.contains('.m3u8') || url.contains('.mp4')) {
                       WidgetsBinding.instance.addPostFrameCallback((_) {
-                        _onUrlCaptured(url);
+                        _onVideoUrlCaptured(url);
                       });
                     }
                     return null;
                   },
-                  onLoadError: (c, url, code, msg) {
-                    setState(() => _errorMessage = '加载失败: $msg');
+                  onLoadStop: (controller, url) {
+                    setState(() => _isLoading = false);
+                  },
+                  onLoadError: (controller, url, code, message) {
+                    setState(() {
+                      _errorMessage = '加载失败: $message';
+                      _isLoading = false;
+                    });
                   },
                 ),
-                // 顶部提示条
-                Positioned(
-                  top: 0, left: 0, right: 0,
-                  child: Container(
-                    color: Colors.black87,
-                    padding: const EdgeInsets.all(8),
-                    child: const Text(
-                      '👇 请在下方网页中点选你想看的剧集',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.white70, fontSize: 14),
-                    ),
+                // 加载指示器
+                if (_isLoading)
+                  const Center(
+                    child: CircularProgressIndicator(),
                   ),
-                ),
-                if (_errorMessage != null)
+                // 错误提示
+                if (_errorMessage != null && !_isLoading)
                   Center(
-                    child: Container(
-                      margin: const EdgeInsets.all(20),
+                    child: Padding(
                       padding: const EdgeInsets.all(16),
-                      color: Colors.red[900],
-                      child: Text(_errorMessage!, style: const TextStyle(color: Colors.white)),
+                      child: Text(
+                        _errorMessage!,
+                        style: const TextStyle(color: Colors.red),
+                        textAlign: TextAlign.center,
+                      ),
                     ),
                   ),
               ],
