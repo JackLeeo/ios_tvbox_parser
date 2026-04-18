@@ -1,13 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
-import '../services/player_service.dart';
+import '../services/api_service.dart';
+import '../models/source.dart';
 import '../utils/constants.dart';
 
 class PlayerPage extends StatefulWidget {
+  final SiteRule site;
   final String videoUrl;
   final String videoTitle;
-  const PlayerPage({super.key, required this.videoUrl, required this.videoTitle});
+  final String flag;
+
+  const PlayerPage({
+    super.key,
+    required this.site,
+    required this.videoUrl,
+    required this.videoTitle,
+    required this.flag,
+  });
 
   @override
   State<PlayerPage> createState() => _PlayerPageState();
@@ -26,9 +36,18 @@ class _PlayerPageState extends State<PlayerPage> {
   }
 
   Future<void> _initPlayer() async {
-    final parseUrl = PlayerService.getParseUrl(widget.videoUrl, parserIndex: _parserIndex);
-    _videoController = VideoPlayerController.networkUrl(Uri.parse(parseUrl));
+    // 优先通过 Node.js 解析真实播放地址
+    String realUrl = await ApiService().getPlayUrl(widget.site, widget.flag, widget.videoUrl);
+
+    // 如果解析失败，回退到公共解析接口
+    if (realUrl.isEmpty) {
+      final base = AppConstants.parseInterfaces[_parserIndex];
+      realUrl = '$base${Uri.encodeComponent(widget.videoUrl)}';
+    }
+
+    _videoController = VideoPlayerController.networkUrl(Uri.parse(realUrl));
     await _videoController.initialize();
+
     _chewieController = ChewieController(
       videoPlayerController: _videoController,
       autoPlay: true,
@@ -43,6 +62,7 @@ class _PlayerPageState extends State<PlayerPage> {
         bufferedColor: Colors.grey.shade600,
       ),
     );
+
     setState(() => _isLoading = false);
   }
 
