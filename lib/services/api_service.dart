@@ -14,7 +14,7 @@ class ApiService {
       final list = result['data']['list'] as List? ?? [];
       return list.map((e) => VideoItem.fromJson(e as Map<String, dynamic>)).toList();
     } catch (e) {
-      print('获取首页失败: $e');
+      print('Home error: $e');
       return [];
     }
   }
@@ -26,7 +26,7 @@ class ApiService {
       final list = result['data']['list'] as List? ?? [];
       return list.map((e) => VideoItem.fromJson(e as Map<String, dynamic>)).toList();
     } catch (e) {
-      print('搜索失败: $e');
+      print('Search error: $e');
       return [];
     }
   }
@@ -64,7 +64,7 @@ class ApiService {
       }
       return episodes;
     } catch (e) {
-      print('获取剧集失败: $e');
+      print('Episodes error: $e');
       return [];
     }
   }
