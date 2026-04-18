@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/storage_service.dart';
 import '../models/storage_models.dart';
-import '../models/search_result.dart';
-import 'episode_page.dart';
+import '../models/video_model.dart';
+import 'video_detail_page.dart';
 
 class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
@@ -33,8 +33,8 @@ class _HistoryPageState extends State<HistoryPage> {
     });
   }
 
-  Future<void> _deleteHistory(String videoUrl) async {
-    await _storageService.deletePlayHistory(videoUrl);
+  Future<void> _deleteHistory(String videoId) async {
+    await _storageService.deletePlayHistory(videoId);
     _loadHistory();
   }
 
@@ -92,7 +92,7 @@ class _HistoryPageState extends State<HistoryPage> {
               itemBuilder: (context, index) {
                 final history = _historyList[index];
                 return Dismissible(
-                  key: Key(history.videoUrl),
+                  key: Key(history.videoId),
                   direction: DismissDirection.endToStart,
                   background: Container(
                     color: Colors.red,
@@ -101,7 +101,7 @@ class _HistoryPageState extends State<HistoryPage> {
                     child: const Icon(Icons.delete, color: Colors.white),
                   ),
                   onDismissed: (direction) {
-                    _deleteHistory(history.videoUrl);
+                    _deleteHistory(history.videoId);
                   },
                   child: ListTile(
                     leading: Image.network(
@@ -128,14 +128,13 @@ class _HistoryPageState extends State<HistoryPage> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => EpisodePage(
-                            searchResult: SearchResult(
+                          builder: (context) => VideoDetailPage(
+                            video: VideoItem(
+                              id: history.videoId,
                               title: history.title,
                               cover: history.cover,
-                              url: history.videoUrl,
-                              platform: history.platform,
+                              cat: 2, // 默认电视剧
                             ),
-                            initialEpisodeIndex: history.lastEpisodeIndex,
                           ),
                         ),
                       );
