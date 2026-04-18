@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class SourceConfig {
   final String name;
   final List<SiteRule> sites;
