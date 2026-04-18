@@ -4,6 +4,7 @@ import '../services/api_service.dart';
 import '../services/storage_service.dart';
 import '../models/video.dart';
 import '../models/source.dart';
+import '../models/episode.dart';
 import 'player_page.dart';
 
 class DetailPage extends StatefulWidget {
@@ -85,10 +86,12 @@ class _DetailPageState extends State<DetailPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(widget.video.title, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                        Text(widget.video.title,
+                            style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 8),
                         if (widget.video.year != null || widget.video.area != null)
-                          Text('${widget.video.year ?? ''} · ${widget.video.area ?? ''}', style: const TextStyle(color: Colors.grey)),
+                          Text('${widget.video.year ?? ''} · ${widget.video.area ?? ''}',
+                              style: const TextStyle(color: Colors.grey)),
                         const SizedBox(height: 16),
                         if (_episodes.isNotEmpty) ...[
                           const Text('剧集列表', style: TextStyle(color: Colors.white, fontSize: 16)),
@@ -115,13 +118,17 @@ class _DetailPageState extends State<DetailPage> {
                                     context,
                                     MaterialPageRoute(
                                       builder: (_) => PlayerPage(
+                                        site: widget.site,
                                         videoUrl: ep.url,
                                         videoTitle: '${widget.video.title} ${ep.name}',
+                                        flag: '',
                                       ),
                                     ),
                                   );
                                 },
-                                child: Text(ep.name, style: const TextStyle(color: Colors.white, fontSize: 12), textAlign: TextAlign.center),
+                                child: Text(ep.name,
+                                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                                    textAlign: TextAlign.center),
                               );
                             },
                           ),
