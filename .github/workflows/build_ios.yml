@@ -3,7 +3,7 @@ name: Build iOS IPA (TrollStore / 未签名)
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:  # 允许手动触发
+  workflow_dispatch:
 
 jobs:
   build:
@@ -37,12 +37,21 @@ jobs:
         run: |
           flutter build ios --release --no-codesign
 
-      - name: 打包成 IPA
+      - name: 修复二进制路径并打包 IPA
         run: |
           APP_PATH="./build/ios/iphoneos/Runner.app"
+          
+          # 赋予执行权限
+          chmod +x "$APP_PATH/Runner"
+          
+          # 🔥 关键步骤：强制指定二进制文件名为 Runner
+          /usr/libexec/PlistBuddy -c "Set :CFBundleExecutable Runner" "$APP_PATH/Info.plist"
+          
+          # 打包
           mkdir -p Payload
           cp -r "$APP_PATH" Payload/
           zip -r tvbox.ipa Payload
+          echo "✅ IPA 已生成，大小为:"
           ls -lh tvbox.ipa
 
       - name: 上传 IPA 产物
