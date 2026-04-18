@@ -51,7 +51,7 @@ class _PlayerPageState extends State<PlayerPage> {
       _parserIndex = index;
       _isLoading = true;
     });
-    await _chewieController?.dispose();
+    _chewieController?.dispose();
     await _videoController.dispose();
     await _initPlayer();
   }
