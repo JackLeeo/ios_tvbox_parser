@@ -11,7 +11,7 @@ class SearchPage extends StatefulWidget {
 class _SearchPageState extends State<SearchPage> {
   final TextEditingController _controller = TextEditingController();
 
-  void _play() {
+  void _go() {
     final keyword = _controller.text.trim();
     if (keyword.isEmpty) return;
     Navigator.push(
@@ -23,19 +23,17 @@ class _SearchPageState extends State<SearchPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('视频解析')),
+      appBar: AppBar(title: const Text('输入剧名')),
       body: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.play_circle_outline, size: 80, color: Colors.blue),
-            const SizedBox(height: 40),
             TextField(
               controller: _controller,
               style: const TextStyle(color: Colors.white, fontSize: 18),
               decoration: InputDecoration(
-                hintText: '输入剧名（如：宁安如梦）',
+                hintText: '例如：宁安如梦',
                 hintStyle: const TextStyle(color: Colors.grey),
                 prefixIcon: const Icon(Icons.search, color: Colors.grey),
                 filled: true,
@@ -49,19 +47,17 @@ class _SearchPageState extends State<SearchPage> {
                   borderSide: const BorderSide(color: Colors.blue),
                 ),
               ),
-              onSubmitted: (_) => _play(),
+              onSubmitted: (_) => _go(),
             ),
             const SizedBox(height: 30),
             ElevatedButton.icon(
-              onPressed: _play,
+              onPressed: _go,
               icon: const Icon(Icons.play_arrow),
-              label: const Text('开始播放'),
+              label: const Text('开始'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.blue,
                 minimumSize: const Size(double.infinity, 55),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
               ),
             ),
           ],
