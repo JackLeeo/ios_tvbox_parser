@@ -5,7 +5,6 @@ import '../models/source.dart';
 class ApiService {
   final Dio _dio = Dio();
 
-  /// 获取首页推荐（以第一个站点为例）
   Future<List<VideoItem>> getHomeList(SiteRule site, {int page = 1}) async {
     try {
       final url = '${site.api}?ac=videolist&pg=$page';
@@ -20,7 +19,6 @@ class ApiService {
     }
   }
 
-  /// 搜索
   Future<List<VideoItem>> search(SiteRule site, String keyword) async {
     try {
       final url = site.searchUrl ?? '${site.api}?ac=videolist&wd=$keyword';
@@ -35,7 +33,6 @@ class ApiService {
     }
   }
 
-  /// 获取剧集
   Future<List<Episode>> getEpisodes(SiteRule site, String videoId) async {
     try {
       final url = '${site.api}?ac=videolist&ids=$videoId';
@@ -43,7 +40,6 @@ class ApiService {
       if (response.data['code'] == 1 && response.data['list'].isNotEmpty) {
         final vod = response.data['list'][0];
         final playList = vod['vod_play_list'] as Map<String, dynamic>;
-        // 通常格式：{"播放源1":"第1集$url#第2集$url", ...}
         final List<Episode> episodes = [];
         playList.forEach((source, urls) {
           final parts = urls.split('#');
