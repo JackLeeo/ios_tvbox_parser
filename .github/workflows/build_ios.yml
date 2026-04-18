@@ -32,7 +32,24 @@ jobs:
         run: |
           gem install cocoapods
           cd ios && pod install --repo-update && cd ..
-
+      - name: 强制禁用 Xcode 代码签名
+        run: |
+          # 进入 ios 目录
+          cd ios
+          
+          # 使用 sed 命令修改 project.pbxproj 文件，将所有签名相关的设置置空
+          # 这会将 CODE_SIGN_IDENTITY 设置为空
+          sed -i '' 's/CODE_SIGN_IDENTITY = ".*"/CODE_SIGN_IDENTITY = ""/g' Runner.xcodeproj/project.pbxproj
+          # 这会将 DEVELOPMENT_TEAM 设置为空
+          sed -i '' 's/DEVELOPMENT_TEAM = .*;/DEVELOPMENT_TEAM = "";/g' Runner.xcodeproj/project.pbxproj
+          # 这会将 PROVISIONING_PROFILE_SPECIFIER 设置为空
+          sed -i '' 's/PROVISIONING_PROFILE_SPECIFIER = ".*"/PROVISIONING_PROFILE_SPECIFIER = ""/g' Runner.xcodeproj/project.pbxproj
+          
+          # 设置 CODE_SIGNING_ALLOWED 为 NO
+          sed -i '' 's/CODE_SIGNING_ALLOWED = YES;/CODE_SIGNING_ALLOWED = NO;/g' Runner.xcodeproj/project.pbxproj
+          
+          echo "✅ Xcode 签名设置已强制禁用"
+          cd ..
       - name: 构建 iOS .app (无签名)
         run: |
           flutter build ios --release --no-codesign
