@@ -13,22 +13,61 @@ class PlayerPage extends StatefulWidget {
 }
 
 class _PlayerPageState extends State<PlayerPage> {
-  // WebView 相关（仅用于嗅探）
+  // 状态：0 = 显示WebView搜索结果，让用户点选；1 = 已捕获视频，原生播放
+  int _stage = 0;
+  
   InAppWebViewController? _webViewController;
-  bool _isSniffing = true;
-  String? _errorMessage;
-
-  // 播放器相关
   VideoPlayerController? _videoController;
   ChewieController? _chewieController;
-  String? _videoUrl;
-
-  // 当前解析线路
+  String? _capturedUrl;
+  String? _errorMessage;
   int _currentParserIndex = 0;
 
-  @override
-  void initState() {
-    super.initState();
+  String get _parserUrl {
+    return '${AppConstants.parseInterfaces[_currentParserIndex]}${Uri.encodeComponent(widget.keyword)}';
+  }
+
+  void _switchParser(int index) {
+    if (_stage != 0) return;
+    setState(() {
+      _currentParserIndex = index;
+      _errorMessage = null;
+    });
+    _webViewController?.loadUrl(urlRequest: URLRequest(url: WebUri(_parserUrl)));
+  }
+
+  /// 初始化原生播放器
+  Future<void> _initPlayer(String url) async {
+    try {
+      _videoController = VideoPlayerController.networkUrl(Uri.parse(url));
+      await _videoController!.initialize();
+      _chewieController = ChewieController(
+        videoPlayerController: _videoController!,
+        autoPlay: true,
+        allowFullScreen: true,
+        showControls: true,
+        fullScreenByDefault: false,
+        materialProgressColors: ChewieProgressColors(
+          playedColor: Colors.blue,
+          handleColor: Colors.blue,
+          backgroundColor: Colors.grey.shade800,
+          bufferedColor: Colors.grey.shade600,
+        ),
+      );
+      setState(() {
+        _stage = 1;
+        _capturedUrl = url;
+      });
+    } catch (e) {
+      setState(() => _errorMessage = '播放出错: $e');
+    }
+  }
+
+  /// 嗅探到视频地址
+  void _onUrlCaptured(String url) {
+    if (_stage != 0) return;
+    _webViewController?.stopLoading();
+    _initPlayer(url);
   }
 
   @override
@@ -38,69 +77,11 @@ class _PlayerPageState extends State<PlayerPage> {
     super.dispose();
   }
 
-  String get _parserUrl {
-    return '${AppConstants.parseInterfaces[_currentParserIndex]}${Uri.encodeComponent(widget.keyword)}';
-  }
-
-  void _switchParser(int index) {
-    if (!_isSniffing) return;
-    setState(() {
-      _currentParserIndex = index;
-      _errorMessage = null;
-    });
-    _webViewController?.loadUrl(
-      urlRequest: URLRequest(url: WebUri(_parserUrl)),
-    );
-  }
-
-  /// 初始化原生播放器
-  Future<void> _initNativePlayer(String url) async {
-    try {
-      _videoController = VideoPlayerController.networkUrl(Uri.parse(url));
-      await _videoController!.initialize();
-
-      _chewieController = ChewieController(
-        videoPlayerController: _videoController!,
-        autoPlay: true,
-        looping: false,
-        allowFullScreen: true,          // 启用全屏
-        allowMuting: true,
-        showControls: true,
-        fullScreenByDefault: false,      // 不默认全屏
-        autoInitialize: true,
-        showOptions: true,               // 显示更多选项（倍速等）
-        materialProgressColors: ChewieProgressColors(
-          playedColor: Colors.blue,
-          handleColor: Colors.blue,
-          backgroundColor: Colors.grey.shade800,
-          bufferedColor: Colors.grey.shade600,
-        ),
-      );
-
-      setState(() {
-        _videoUrl = url;
-        _isSniffing = false;
-      });
-    } catch (e) {
-      setState(() {
-        _errorMessage = '播放失败: $e';
-      });
-    }
-  }
-
-  /// 嗅探到视频地址的回调
-  void _onUrlCaptured(String url) {
-    if (!_isSniffing) return;
-    // 停止 WebView 加载，节省资源
-    _webViewController?.stopLoading();
-    _initNativePlayer(url);
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: _isSniffing
+      appBar: _stage == 0
           ? AppBar(
               title: Text(widget.keyword),
               actions: [
@@ -122,60 +103,55 @@ class _PlayerPageState extends State<PlayerPage> {
                 ),
               ],
             )
-          : null, // 全屏播放时隐藏 AppBar
-      body: _isSniffing
+          : null,
+      body: _stage == 0
           ? Stack(
               children: [
-                // 隐藏的 WebView，仅用于嗅探
-                Offstage(
-                  offstage: false,
-                  child: InAppWebView(
-                    initialUrlRequest: URLRequest(url: WebUri(_parserUrl)),
-                    initialSettings: InAppWebViewSettings(
-                      javaScriptEnabled: true,
-                      useShouldInterceptRequest: true,
-                    ),
-                    onWebViewCreated: (c) => _webViewController = c,
-                    shouldInterceptRequest: (controller, request) async {
-                      final url = request.url.toString();
-                      if (url.contains('.m3u8') || url.contains('.mp4')) {
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          _onUrlCaptured(url);
-                        });
-                      }
-                      return null;
-                    },
-                    onLoadError: (c, url, code, msg) {
-                      setState(() => _errorMessage = '加载失败: $msg');
-                    },
+                // 可见的WebView，让用户手动点击搜索结果
+                InAppWebView(
+                  initialUrlRequest: URLRequest(url: WebUri(_parserUrl)),
+                  initialSettings: InAppWebViewSettings(
+                    javaScriptEnabled: true,
+                    useShouldInterceptRequest: true,
+                    supportZoom: false,
                   ),
+                  onWebViewCreated: (c) => _webViewController = c,
+                  shouldInterceptRequest: (controller, request) async {
+                    final url = request.url.toString();
+                    // 当用户点击某个结果进入播放页后，我们会在此处拦截到视频流
+                    if (url.contains('.m3u8') || url.contains('.mp4')) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        _onUrlCaptured(url);
+                      });
+                    }
+                    return null;
+                  },
+                  onLoadError: (c, url, code, msg) {
+                    setState(() => _errorMessage = '加载失败: $msg');
+                  },
                 ),
-                // 嗅探中遮罩
-                Container(
-                  color: Colors.black,
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const CircularProgressIndicator(),
-                        const SizedBox(height: 16),
-                        Text(
-                          '正在嗅探视频流...',
-                          style: TextStyle(color: Colors.grey[400]),
-                        ),
-                        if (_errorMessage != null)
-                          Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Text(
-                              _errorMessage!,
-                              style: const TextStyle(color: Colors.red),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                      ],
+                // 顶部提示条
+                Positioned(
+                  top: 0, left: 0, right: 0,
+                  child: Container(
+                    color: Colors.black87,
+                    padding: const EdgeInsets.all(8),
+                    child: const Text(
+                      '👇 请在下方网页中点选你想看的剧集',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white70, fontSize: 14),
                     ),
                   ),
                 ),
+                if (_errorMessage != null)
+                  Center(
+                    child: Container(
+                      margin: const EdgeInsets.all(20),
+                      padding: const EdgeInsets.all(16),
+                      color: Colors.red[900],
+                      child: Text(_errorMessage!, style: const TextStyle(color: Colors.white)),
+                    ),
+                  ),
               ],
             )
           : _chewieController != null
