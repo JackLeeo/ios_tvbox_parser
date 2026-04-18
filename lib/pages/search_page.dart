@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
-import '../services/search_service.dart';
-import '../models/search_result.dart';
-import 'episode_page.dart';
+import '../services/video_api_service.dart';
+import '../models/video_model.dart';
+import 'video_detail_page.dart';
 
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
@@ -13,8 +13,8 @@ class SearchPage extends StatefulWidget {
 
 class _SearchPageState extends State<SearchPage> {
   final TextEditingController _searchController = TextEditingController();
-  final SearchService _searchService = SearchService();
-  List<SearchResult> _searchResults = [];
+  final VideoApiService _apiService = VideoApiService();
+  List<VideoItem> _searchResults = [];
   bool _isSearching = false;
 
   Future<void> _performSearch() async {
@@ -27,7 +27,7 @@ class _SearchPageState extends State<SearchPage> {
     });
 
     try {
-      final results = await _searchService.searchVideo(keyword);
+      final results = await _apiService.searchVideo(keyword);
       setState(() => _searchResults = results);
     } catch (e) {
       if (mounted) {
@@ -46,7 +46,7 @@ class _SearchPageState extends State<SearchPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('VIP视频解析'),
+        title: const Text('搜索视频'),
         centerTitle: true,
       ),
       body: Padding(
@@ -57,7 +57,7 @@ class _SearchPageState extends State<SearchPage> {
               controller: _searchController,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                hintText: '输入电视剧/电影名称',
+                hintText: '输入电影/电视剧名称',
                 hintStyle: const TextStyle(color: Colors.grey),
                 prefixIcon: const Icon(Icons.search, color: Colors.grey),
                 border: OutlineInputBorder(
@@ -96,10 +96,10 @@ class _SearchPageState extends State<SearchPage> {
                       : ListView.builder(
                           itemCount: _searchResults.length,
                           itemBuilder: (context, index) {
-                            final result = _searchResults[index];
+                            final video = _searchResults[index];
                             return ListTile(
                               leading: Image.network(
-                                result.cover,
+                                video.cover,
                                 width: 50,
                                 height: 70,
                                 fit: BoxFit.cover,
@@ -112,9 +112,9 @@ class _SearchPageState extends State<SearchPage> {
                                   );
                                 },
                               ),
-                              title: Text(result.title),
+                              title: Text(video.title),
                               subtitle: Text(
-                                result.platform,
+                                video.year ?? '',
                                 style: const TextStyle(color: Colors.grey),
                               ),
                               trailing: const Icon(Icons.arrow_forward_ios, color: Colors.grey),
@@ -122,9 +122,7 @@ class _SearchPageState extends State<SearchPage> {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => EpisodePage(
-                                      searchResult: result,
-                                    ),
+                                    builder: (context) => VideoDetailPage(video: video),
                                   ),
                                 );
                               },
