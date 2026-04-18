@@ -6,7 +6,12 @@ import 'services/node_parser_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await StorageService().init();
-  await NodeParserService().init(); // 启动 Node.js 引擎
+
+  // 启动 Node.js 引擎（不等待，避免白屏）
+  NodeParserService().init().catchError((e) {
+    print('Node.js 启动失败: $e，将使用公共解析接口');
+  });
+
   runApp(const MyApp());
 }
 
