@@ -14,23 +14,24 @@ class NodeParserService {
   Future<void> init() async {
     if (_readyCompleter.isCompleted) return;
 
-    await Node.start();
+    // 启动 Node.js 运行时，自动加载 nodejs-project/main.js
+    await Nodejs.start();
 
-    _subscription = Node.messages.listen((message) {
-      final channel = message.channel;
-      final data = message.data;
+    _subscription = Nodejs.onMessageReceived.listen((event) {
+      final channel = event['channelName'] as String?;
+      final message = event['message'];
 
       if (channel == 'node_ready') {
         _readyCompleter.complete();
       } else if (channel == 'parse_result') {
-        final json = jsonDecode(data) as Map<String, dynamic>;
-        final requestId = json['requestId'] as String;
-        _pendingRequests[requestId]?.complete(json);
+        final data = message is String ? jsonDecode(message) : message as Map<String, dynamic>;
+        final requestId = data['requestId'] as String;
+        _pendingRequests[requestId]?.complete(data);
         _pendingRequests.remove(requestId);
       } else if (channel == 'parse_error') {
-        final json = jsonDecode(data) as Map<String, dynamic>;
-        final requestId = json['requestId'] as String;
-        _pendingRequests[requestId]?.completeError(json['error']);
+        final error = message is String ? jsonDecode(message) : message as Map<String, dynamic>;
+        final requestId = error['requestId'] as String;
+        _pendingRequests[requestId]?.completeError(error['error']);
         _pendingRequests.remove(requestId);
       }
     });
@@ -45,11 +46,11 @@ class NodeParserService {
     final completer = Completer<Map<String, dynamic>>();
     _pendingRequests[requestId] = completer;
 
-    Node.sendMessage('parse', request);
+    Nodejs.sendMessage('parse', request);
 
     return completer.future.timeout(
       const Duration(seconds: 30),
-      onTimeout: () => throw TimeoutException('Node.js timeout'),
+      onTimeout: () => throw TimeoutException('Node.js 解析超时'),
     );
   }
 
@@ -67,6 +68,6 @@ class NodeParserService {
 
   void dispose() {
     _subscription?.cancel();
-    Node.stop();
+    Nodejs.stop();
   }
 }
