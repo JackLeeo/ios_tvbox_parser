@@ -4,7 +4,6 @@ import '../services/api_service.dart';
 import '../services/storage_service.dart';
 import '../models/video.dart';
 import '../models/source.dart';
-import '../models/episode.dart';
 import 'player_page.dart';
 
 class DetailPage extends StatefulWidget {
