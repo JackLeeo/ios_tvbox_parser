@@ -1,11 +1,16 @@
-const bridge = require('bridge'); // flutter_node 提供的通信模块
+const bridge = require('bridge');
 const fs = require('fs');
 const path = require('path');
 
 // 加载 drpy 引擎
-require('./drpy2.min.js');
+const drpyPath = path.join(__dirname, 'drpy2.min.js');
+if (fs.existsSync(drpyPath)) {
+  require(drpyPath);
+  console.log('drpy2.min.js loaded');
+} else {
+  console.error('drpy2.min.js not found');
+}
 
-// 监听来自 Flutter 的消息
 bridge.on('parse', (msg) => {
   try {
     const { requestId, action, payload } = JSON.parse(msg);
@@ -13,19 +18,19 @@ bridge.on('parse', (msg) => {
     
     switch (action) {
       case 'home':
-        result = global.drpyHome(payload.rule, payload.page);
+        result = global.drpyHome ? global.drpyHome(payload.rule, payload.page) : { list: [] };
         break;
       case 'search':
-        result = global.drpySearch(payload.rule, payload.keyword, payload.page);
+        result = global.drpySearch ? global.drpySearch(payload.rule, payload.keyword, payload.page) : { list: [] };
         break;
       case 'detail':
-        result = global.drpyDetail(payload.rule, payload.url);
+        result = global.drpyDetail ? global.drpyDetail(payload.rule, payload.url) : { list: [] };
         break;
       case 'play':
-        result = global.drpyPlay(payload.rule, payload.flag, payload.id);
+        result = global.drpyPlay ? global.drpyPlay(payload.rule, payload.flag, payload.id) : { url: '' };
         break;
       default:
-        throw new Error(`未知动作: ${action}`);
+        throw new Error(`Unknown action: ${action}`);
     }
     
     bridge.send('parse_result', JSON.stringify({ requestId, data: result }));
