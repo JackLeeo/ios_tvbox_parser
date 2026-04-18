@@ -9,29 +9,21 @@ class SearchPage extends StatefulWidget {
 }
 
 class _SearchPageState extends State<SearchPage> {
-  final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _controller = TextEditingController();
 
-  void _startPlay() {
-    final keyword = _searchController.text.trim();
+  void _play() {
+    final keyword = _controller.text.trim();
     if (keyword.isEmpty) return;
-
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => PlayerPage(keyword: keyword),
-      ),
+      MaterialPageRoute(builder: (_) => PlayerPage(keyword: keyword)),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        title: const Text('原生解析'),
-        centerTitle: true,
-        backgroundColor: Colors.black,
-      ),
+      appBar: AppBar(title: const Text('视频解析')),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
@@ -40,7 +32,7 @@ class _SearchPageState extends State<SearchPage> {
             const Icon(Icons.play_circle_outline, size: 80, color: Colors.blue),
             const SizedBox(height: 40),
             TextField(
-              controller: _searchController,
+              controller: _controller,
               style: const TextStyle(color: Colors.white, fontSize: 18),
               decoration: InputDecoration(
                 hintText: '输入剧名（如：宁安如梦）',
@@ -57,14 +49,13 @@ class _SearchPageState extends State<SearchPage> {
                   borderSide: const BorderSide(color: Colors.blue),
                 ),
               ),
-              onSubmitted: (_) => _startPlay(),
-              textInputAction: TextInputAction.search,
+              onSubmitted: (_) => _play(),
             ),
             const SizedBox(height: 30),
             ElevatedButton.icon(
-              onPressed: _startPlay,
+              onPressed: _play,
               icon: const Icon(Icons.play_arrow),
-              label: const Text('开始嗅探播放'),
+              label: const Text('开始播放'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.blue,
                 minimumSize: const Size(double.infinity, 55),
