@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/storage_service.dart';
-import '../models/search_result.dart';
-import 'episode_page.dart';
+import '../models/video_model.dart';
+import 'video_detail_page.dart';
 
 class FavoritePage extends StatefulWidget {
   const FavoritePage({super.key});
@@ -12,7 +12,7 @@ class FavoritePage extends StatefulWidget {
 
 class _FavoritePageState extends State<FavoritePage> {
   final StorageService _storageService = StorageService();
-  List<SearchResult> _favorites = [];
+  List<VideoItem> _favorites = [];
 
   @override
   void initState() {
@@ -32,8 +32,8 @@ class _FavoritePageState extends State<FavoritePage> {
     });
   }
 
-  Future<void> _removeFavorite(String videoUrl) async {
-    await _storageService.removeFavorite(videoUrl);
+  Future<void> _removeFavorite(String videoId) async {
+    await _storageService.removeFavorite(videoId);
     _loadFavorites();
   }
 
@@ -57,7 +57,7 @@ class _FavoritePageState extends State<FavoritePage> {
               itemBuilder: (context, index) {
                 final favorite = _favorites[index];
                 return Dismissible(
-                  key: Key(favorite.url),
+                  key: Key(favorite.id),
                   direction: DismissDirection.endToStart,
                   background: Container(
                     color: Colors.red,
@@ -66,7 +66,7 @@ class _FavoritePageState extends State<FavoritePage> {
                     child: const Icon(Icons.delete, color: Colors.white),
                   ),
                   onDismissed: (direction) {
-                    _removeFavorite(favorite.url);
+                    _removeFavorite(favorite.id);
                   },
                   child: ListTile(
                     leading: Image.network(
@@ -85,7 +85,7 @@ class _FavoritePageState extends State<FavoritePage> {
                     ),
                     title: Text(favorite.title),
                     subtitle: Text(
-                      favorite.platform,
+                      favorite.year ?? '',
                       style: const TextStyle(color: Colors.grey),
                     ),
                     trailing: const Icon(Icons.arrow_forward_ios, color: Colors.grey),
@@ -93,9 +93,7 @@ class _FavoritePageState extends State<FavoritePage> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => EpisodePage(
-                            searchResult: favorite,
-                          ),
+                          builder: (context) => VideoDetailPage(video: favorite),
                         ),
                       );
                     },
