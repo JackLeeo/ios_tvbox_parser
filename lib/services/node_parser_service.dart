@@ -68,6 +68,6 @@ class NodeParserService {
 
   void dispose() {
     _subscription?.cancel();
-    Nodejs.stop();
+    //Nodejs.stop();
   }
 }
