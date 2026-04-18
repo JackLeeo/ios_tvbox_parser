@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
-import 'pages/search_page.dart';
+import 'pages/home_page.dart';
+import 'services/storage_service.dart';
 
-void main() => runApp(const MyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await StorageService().init();
+  runApp(const MyApp());
+}
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -9,12 +14,12 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '原生嗅探播放器',
+      title: '我的TVBox',
       theme: ThemeData.dark().copyWith(
         scaffoldBackgroundColor: Colors.black,
         appBarTheme: const AppBarTheme(backgroundColor: Colors.black, elevation: 0),
       ),
-      home: const SearchPage(),
+      home: const HomePage(),
       debugShowCheckedModeBanner: false,
     );
   }
