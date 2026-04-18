@@ -42,6 +42,11 @@ class _HomePageState extends State<HomePage> {
       }
     } catch (e) {
       setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('加载配置失败: $e')),
+        );
+      }
     }
   }
 
@@ -57,7 +62,6 @@ class _HomePageState extends State<HomePage> {
 
   void _switchCategory(int cat) {
     setState(() => _currentCat = cat);
-    // 实际可按分类加载，这里简化
     _loadVideos();
   }
 
@@ -69,7 +73,10 @@ class _HomePageState extends State<HomePage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SearchPage(site: _currentSite))),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => SearchPage(site: _currentSite)),
+            ),
           ),
         ],
       ),
@@ -90,7 +97,9 @@ class _HomePageState extends State<HomePage> {
                   video: video,
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => DetailPage(site: _currentSite!, video: video)),
+                    MaterialPageRoute(
+                      builder: (_) => DetailPage(site: _currentSite!, video: video),
+                    ),
                   ),
                 );
               },
