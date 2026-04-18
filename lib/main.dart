@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
-import 'pages/home_page.dart';
-import 'services/storage_service.dart';
+import 'pages/search_page.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await StorageService().init();
+void main() {
   runApp(const MyApp());
 }
 
@@ -14,21 +11,16 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'VIP视频解析',
+      title: '视频嗅探播放器',
       theme: ThemeData(
         primarySwatch: Colors.blue,
-        useMaterial3: true,
         scaffoldBackgroundColor: Colors.black,
-        textTheme: const TextTheme(
-          bodyLarge: TextStyle(color: Colors.white),
-          bodyMedium: TextStyle(color: Colors.white),
-        ),
         appBarTheme: const AppBarTheme(
           backgroundColor: Colors.black,
           titleTextStyle: TextStyle(color: Colors.white, fontSize: 18),
         ),
       ),
-      home: const HomePage(),
+      home: const SearchPage(),
       debugShowCheckedModeBanner: false,
     );
   }
