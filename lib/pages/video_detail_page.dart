@@ -58,8 +58,7 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
     if (_isFavorite) {
       await _storageService.removeFavorite(widget.video.id);
     } else {
-      // 注意：需要调整存储模型以适配新结构
-      // 这里先简化处理
+      await _storageService.addFavorite(widget.video);
     }
     setState(() => _isFavorite = !_isFavorite);
   }
@@ -124,83 +123,46 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
                           ),
                         const SizedBox(height: 8),
                         Text(
-                          '${widget.video.year ?? ""} · ${widget.video.area ?? ""}',
+                          '${widget.video.year ?? ""}',
                           style: const TextStyle(color: Colors.grey),
                         ),
                         const SizedBox(height: 16),
-                        // 播放源选择
-                        if (_sources.isNotEmpty) ...[
-                          const Text(
-                            '播放源',
-                            style: TextStyle(color: Colors.white, fontSize: 16),
-                          ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 8,
-                            children: _sources.map((source) {
-                              final isSelected = _selectedSource == source;
-                              return ChoiceChip(
-                                label: Text(source.name),
-                                selected: isSelected,
-                                onSelected: (_) {
-                                  setState(() => _selectedSource = source);
-                                },
-                                backgroundColor: Colors.grey[800],
-                                selectedColor: Colors.blue,
-                                labelStyle: TextStyle(
-                                  color: isSelected ? Colors.white : Colors.grey,
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                          const SizedBox(height: 16),
-                        ],
-                        // 剧集列表
-                        if (_selectedSource != null) ...[
-                          const Text(
-                            '剧集列表',
-                            style: TextStyle(color: Colors.white, fontSize: 16),
-                          ),
-                          const SizedBox(height: 8),
-                          GridView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 5,
-                              childAspectRatio: 1.2,
-                              crossAxisSpacing: 8,
-                              mainAxisSpacing: 8,
-                            ),
-                            itemCount: _selectedSource!.episodes.length,
-                            itemBuilder: (context, index) {
-                              final episode = _selectedSource!.episodes[index];
-                              return ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.grey[800],
-                                  padding: const EdgeInsets.all(4),
-                                ),
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => NativePlayerPage(
-                                        videoUrl: episode.url,
-                                        videoTitle: '${widget.video.title} ${episode.title}',
-                                        episodeTitle: episode.title,
-                                      ),
+                        // 播放按钮
+                        if (_selectedSource != null && _selectedSource!.episodes.isNotEmpty)
+                          Center(
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                final episode = _selectedSource!.episodes.first;
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => NativePlayerPage(
+                                      videoUrl: episode.url,
+                                      videoTitle: widget.video.title,
+                                      episodeTitle: episode.title,
                                     ),
-                                  );
-                                },
-                                child: Text(
-                                  episode.title,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
                                   ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              );
-                            },
+                                );
+                              },
+                              icon: const Icon(Icons.play_arrow),
+                              label: const Text('立即播放'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue,
+                                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
+                              ),
+                            ),
+                          ),
+                        const SizedBox(height: 16),
+                        // 简介
+                        if (_detailData?['summary'] != null) ...[
+                          const Text(
+                            '简介',
+                            style: TextStyle(color: Colors.white, fontSize: 16),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _detailData!['summary'] ?? '',
+                            style: const TextStyle(color: Colors.grey, fontSize: 14),
                           ),
                         ],
                       ],
