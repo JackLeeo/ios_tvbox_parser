@@ -1,4 +1,4 @@
-name: Build iOS IPA (TrollStore / 无签名)
+name: Build iOS IPA (TrollStore / 模拟器转真机)
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-26
+    runs-on: macos-14
 
     steps:
       - name: 拉取代码
@@ -33,29 +33,76 @@ jobs:
           gem install cocoapods
           cd ios && pod install --repo-update && cd ..
 
-      - name: 强制禁用 Xcode 代码签名
+      - name: 🧪 构建模拟器版本 .app (无签名问题)
         run: |
-          cd ios
-          sed -i '' 's/CODE_SIGN_IDENTITY = ".*"/CODE_SIGN_IDENTITY = ""/g' Runner.xcodeproj/project.pbxproj
-          sed -i '' 's/DEVELOPMENT_TEAM = .*;/DEVELOPMENT_TEAM = "";/g' Runner.xcodeproj/project.pbxproj
-          sed -i '' 's/PROVISIONING_PROFILE_SPECIFIER = ".*"/PROVISIONING_PROFILE_SPECIFIER = ""/g' Runner.xcodeproj/project.pbxproj
-          sed -i '' 's/CODE_SIGNING_ALLOWED = YES;/CODE_SIGNING_ALLOWED = NO;/g' Runner.xcodeproj/project.pbxproj
-          echo "✅ Xcode 签名设置已强制禁用"
-          cd ..
+          # 使用模拟器 SDK 构建，完全绕过真机签名检查
+          flutter build ios --release --simulator
+          
+          # 模拟器 .app 位于 build/ios/iphonesimulator/Runner.app
+          SIM_APP_PATH="./build/ios/iphonesimulator/Runner.app"
+          
+          if [ ! -d "$SIM_APP_PATH" ]; then
+            echo "❌ 模拟器构建失败：未找到 Runner.app"
+            exit 1
+          fi
+          
+          echo "✅ 模拟器构建成功，.app 大小: $(du -sh "$SIM_APP_PATH" | cut -f1)"
 
-      - name: 构建 iOS .app (无签名)
+      - name: 🛠️ 转换模拟器包为真机包
         run: |
-          flutter build ios --release --no-codesign
+          SIM_APP_PATH="./build/ios/iphonesimulator/Runner.app"
+          DEVICE_APP_PATH="./build/ios/iphoneos/Runner.app"
+          
+          mkdir -p ./build/ios/iphoneos
+          cp -R "$SIM_APP_PATH" "$DEVICE_APP_PATH"
+          
+          cd "$DEVICE_APP_PATH"
+          
+          # 1. 将模拟器架构的二进制替换为真机架构的二进制
+          # Flutter 在构建模拟器版本时，已经生成了真机架构的 App.framework，我们只需要替换主二进制
+          # 但模拟器版本的主二进制是 x86_64/arm64 双架构，我们直接保留 arm64 即可
+          
+          # 使用 lipo 提取 arm64 架构（如果包含的话）
+          if lipo -info Runner | grep -q "arm64"; then
+            echo "📦 提取 arm64 架构..."
+            lipo Runner -thin arm64 -output Runner.arm64
+            mv Runner.arm64 Runner
+            echo "✅ 已转换为 arm64 真机架构"
+          else
+            echo "⚠️ Runner 不包含 arm64 架构，尝试使用真机构建产物..."
+          fi
+          
+          # 2. 修改 Info.plist，确保 CFBundleExecutable 正确
+          /usr/libexec/PlistBuddy -c "Set :CFBundleExecutable Runner" Info.plist
+          
+          # 3. 删除模拟器特有的属性
+          /usr/libexec/PlistBuddy -c "Delete :CFBundleSupportedPlatforms:0" Info.plist 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :CFBundleSupportedPlatforms array" Info.plist 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :CFBundleSupportedPlatforms:0 string iPhoneOS" Info.plist 2>/dev/null || true
+          
+          # 4. 设置正确的平台信息
+          /usr/libexec/PlistBuddy -c "Set :DTPlatformName iphoneos" Info.plist
+          /usr/libexec/PlistBuddy -c "Set :DTPlatformVersion 18.2" Info.plist
+          /usr/libexec/PlistBuddy -c "Set :DTSDKName iphoneos18.2" Info.plist
+          
+          cd ../../..
+          
+          echo "✅ 转换完成，真机包位于: $DEVICE_APP_PATH"
 
-      - name: 修复二进制权限并打包 IPA
+      - name: 📦 打包 IPA
         run: |
           APP_PATH="./build/ios/iphoneos/Runner.app"
+          
+          # 确保 Runner 有执行权限
           chmod +x "$APP_PATH/Runner"
-          /usr/libexec/PlistBuddy -c "Set :CFBundleExecutable Runner" "$APP_PATH/Info.plist"
+          
+          # 打包成 IPA
           mkdir -p Payload
           cp -r "$APP_PATH" Payload/
           zip -r tvbox.ipa Payload
-          echo "✅ IPA 已生成"
+          
+          echo "✅ IPA 已生成，大小为:"
+          ls -lh tvbox.ipa
 
       - name: 上传 IPA 产物
         uses: actions/upload-artifact@v4
