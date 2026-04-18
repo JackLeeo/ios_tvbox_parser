@@ -47,7 +47,7 @@ class SiteRule {
   });
 
   factory SiteRule.fromJson(Map<String, dynamic> json) {
-    // 安全转换数字字段：支持 int 或 String
+    // 安全转换数字字段
     int? parseInt(dynamic value) {
       if (value == null) return null;
       if (value is int) return value;
@@ -55,7 +55,7 @@ class SiteRule {
       return null;
     }
 
-    // 安全转换布尔字段：支持 bool 或 int (0/1) 或 String ("0"/"1")
+    // 安全转换布尔字段
     bool parseBool(dynamic value) {
       if (value == null) return false;
       if (value is bool) return value;
@@ -67,22 +67,37 @@ class SiteRule {
       return false;
     }
 
+    // 安全转换 Map 类型字段（ext、style、headers）
+    Map<String, dynamic>? parseMap(dynamic value) {
+      if (value == null) return null;
+      if (value is Map<String, dynamic>) return value;
+      if (value is String) {
+        // 如果是字符串，尝试解析为 JSON，失败则包装为 {"raw": value}
+        try {
+          return jsonDecode(value);
+        } catch (_) {
+          return {'raw': value};
+        }
+      }
+      return null;
+    }
+
     return SiteRule(
       key: json['key']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
       api: json['api']?.toString() ?? '',
       searchUrl: json['searchUrl']?.toString(),
-      headers: json['headers'] != null
-          ? Map<String, String>.from(json['headers'] as Map)
-          : null,
+      headers: parseMap(json['headers'])?.map((k, v) => MapEntry(k, v.toString())),
       playerType: parseInt(json['playerType']),
       timeout: parseInt(json['timeout']),
       type: parseInt(json['type']),
       searchable: parseBool(json['searchable']),
       quickSearch: parseBool(json['quickSearch']),
       changeable: parseBool(json['changeable']),
-      ext: json['ext'] as Map<String, dynamic>?,
-      style: json['style'] as Map<String, dynamic>?,
+      ext: parseMap(json['ext']),
+      style: parseMap(json['style']),
     );
   }
 }
+
+// 如果 jsonDecode 未导入，请在文件顶部添加 import 'dart:convert';
