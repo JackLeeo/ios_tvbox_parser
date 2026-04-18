@@ -1,7 +1,7 @@
 class PlayHistory {
   final String title;
   final String cover;
-  final String videoUrl;
+  final String videoId;
   final String platform;
   final int lastEpisodeIndex;
   final int playProgressSeconds;
@@ -10,7 +10,7 @@ class PlayHistory {
   PlayHistory({
     required this.title,
     required this.cover,
-    required this.videoUrl,
+    required this.videoId,
     required this.platform,
     required this.lastEpisodeIndex,
     required this.playProgressSeconds,
@@ -20,7 +20,7 @@ class PlayHistory {
   Map<String, dynamic> toJson() => {
     'title': title,
     'cover': cover,
-    'videoUrl': videoUrl,
+    'videoId': videoId,
     'platform': platform,
     'lastEpisodeIndex': lastEpisodeIndex,
     'playProgressSeconds': playProgressSeconds,
@@ -30,7 +30,7 @@ class PlayHistory {
   factory PlayHistory.fromJson(Map<String, dynamic> json) => PlayHistory(
     title: json['title'],
     cover: json['cover'],
-    videoUrl: json['videoUrl'],
+    videoId: json['videoId'],
     platform: json['platform'],
     lastEpisodeIndex: json['lastEpisodeIndex'],
     playProgressSeconds: json['playProgressSeconds'],
