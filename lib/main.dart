@@ -6,7 +6,7 @@ import 'services/node_parser_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await StorageService().init();
-  await NodeParserService().init();
+  await NodeParserService().init(); // 启动 Node.js 引擎
   runApp(const MyApp());
 }
 
