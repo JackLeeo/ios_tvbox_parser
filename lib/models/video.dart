@@ -6,9 +6,18 @@ class VideoItem {
   final String? year;
   final String? area;
   final String? actors;
-  final int cat; // 1电影 2电视剧 3综艺 4动漫
+  final int cat;
 
-  VideoItem({required this.id, required this.title, required this.cover, this.desc, this.year, this.area, this.actors, required this.cat});
+  VideoItem({
+    required this.id,
+    required this.title,
+    required this.cover,
+    this.desc,
+    this.year,
+    this.area,
+    this.actors,
+    required this.cat,
+  });
 
   factory VideoItem.fromJson(Map<String, dynamic> json) {
     return VideoItem(
@@ -22,6 +31,17 @@ class VideoItem {
       cat: int.tryParse(json['type_id']?.toString() ?? '0') ?? 0,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'vod_id': id,
+        'vod_name': title,
+        'vod_pic': cover,
+        'vod_content': desc,
+        'vod_year': year,
+        'vod_area': area,
+        'vod_actor': actors,
+        'type_id': cat,
+      };
 }
 
 class VideoDetail {
