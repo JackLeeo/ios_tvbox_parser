@@ -1,4 +1,4 @@
-name: Build iOS IPA (TrollStore / 未签名)
+name: Build iOS IPA (TrollStore / 无签名)
 
 on:
   push:
@@ -32,42 +32,125 @@ jobs:
         run: |
           gem install cocoapods
           cd ios && pod install --repo-update && cd ..
-      - name: 强制禁用 Xcode 代码签名
-        run: |
-          # 进入 ios 目录
-          cd ios
-          
-          # 使用 sed 命令修改 project.pbxproj 文件，将所有签名相关的设置置空
-          # 这会将 CODE_SIGN_IDENTITY 设置为空
-          sed -i '' 's/CODE_SIGN_IDENTITY = ".*"/CODE_SIGN_IDENTITY = ""/g' Runner.xcodeproj/project.pbxproj
-          # 这会将 DEVELOPMENT_TEAM 设置为空
-          sed -i '' 's/DEVELOPMENT_TEAM = .*;/DEVELOPMENT_TEAM = "";/g' Runner.xcodeproj/project.pbxproj
-          # 这会将 PROVISIONING_PROFILE_SPECIFIER 设置为空
-          sed -i '' 's/PROVISIONING_PROFILE_SPECIFIER = ".*"/PROVISIONING_PROFILE_SPECIFIER = ""/g' Runner.xcodeproj/project.pbxproj
-          
-          # 设置 CODE_SIGNING_ALLOWED 为 NO
-          sed -i '' 's/CODE_SIGNING_ALLOWED = YES;/CODE_SIGNING_ALLOWED = NO;/g' Runner.xcodeproj/project.pbxproj
-          
-          echo "✅ Xcode 签名设置已强制禁用"
-          cd ..
-      - name: 构建 iOS .app (无签名)
-        run: |
-          flutter build ios --release --no-codesign
 
-      - name: 修复二进制路径并打包 IPA
+      - name: 🔐 创建虚拟签名证书和描述文件
+        run: |
+          # 创建临时钥匙串
+          security create-keychain -p temp temp.keychain
+          security default-keychain -s temp.keychain
+          security unlock-keychain -p temp temp.keychain
+          security set-keychain-settings -t 3600 -u temp.keychain
+
+          # 生成自签名证书（有效期1天）
+          openssl req -x509 -newkey rsa:4096 -keyout temp.key -out temp.crt \
+            -days 1 -nodes -subj "/CN=Temp Certificate"
+          openssl pkcs12 -export -out temp.p12 -inkey temp.key -in temp.crt -passout pass:
+
+          # 导入证书到钥匙串
+          security import temp.p12 -k temp.keychain -P "" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k temp temp.keychain
+
+          # 获取证书的 SHA-1 指纹
+          CERT_SHA1=$(security find-certificate -c "Temp Certificate" -Z temp.keychain | grep "SHA-1" | awk '{print $NF}')
+          echo "CERT_SHA1=${CERT_SHA1}" >> $GITHUB_ENV
+
+          # 创建临时 Provisioning Profile
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cat > ~/Library/MobileDevice/Provisioning\ Profiles/temp.mobileprovision << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>AppIDName</key>
+            <string>Temp</string>
+            <key>ApplicationIdentifierPrefix</key>
+            <array>
+              <string>AAAAAAAAAA</string>
+            </array>
+            <key>CreationDate</key>
+            <date>2024-01-01T00:00:00Z</date>
+            <key>Platform</key>
+            <array>
+              <string>iOS</string>
+            </array>
+            <key>DeveloperCertificates</key>
+            <array>
+              <data>REPLACE_CERT_DATA</data>
+            </array>
+            <key>Entitlements</key>
+            <dict>
+              <key>application-identifier</key>
+              <string>AAAAAAAAAA.com.example.iosTvboxParser</string>
+              <key>com.apple.developer.team-identifier</key>
+              <string>AAAAAAAAAA</string>
+              <key>get-task-allow</key>
+              <true/>
+            </dict>
+            <key>ExpirationDate</key>
+            <date>2025-01-01T00:00:00Z</date>
+            <key>Name</key>
+            <string>Temp Profile</string>
+            <key>ProvisionedDevices</key>
+            <array/>
+            <key>TeamIdentifier</key>
+            <array>
+              <string>AAAAAAAAAA</string>
+            </array>
+            <key>TeamName</key>
+            <string>Temp Team</string>
+            <key>UUID</key>
+            <string>00000000-0000-0000-0000-000000000000</string>
+            <key>Version</key>
+            <integer>1</integer>
+          </dict>
+          </plist>
+          EOF
+
+          # 将证书数据嵌入描述文件
+          CERT_DATA=$(base64 -i temp.crt | tr -d '\n')
+          sed -i '' "s|REPLACE_CERT_DATA|${CERT_DATA}|g" ~/Library/MobileDevice/Provisioning\ Profiles/temp.mobileprovision
+
+          echo "✅ 虚拟签名环境准备完成"
+
+      - name: 配置 Xcode 使用虚拟签名
+        run: |
+          cd ios
+
+          # 强制设置 DEVELOPMENT_TEAM 为 AAAAAAAAAA
+          sed -i '' 's/DEVELOPMENT_TEAM = .*;/DEVELOPMENT_TEAM = AAAAAAAAAA;/g' Runner.xcodeproj/project.pbxproj
+
+          # 设置 PROVISIONING_PROFILE_SPECIFIER
+          sed -i '' 's/PROVISIONING_PROFILE_SPECIFIER = ".*"/PROVISIONING_PROFILE_SPECIFIER = "Temp Profile"/g' Runner.xcodeproj/project.pbxproj
+
+          # 设置 CODE_SIGN_IDENTITY 为证书名称
+          sed -i '' 's/CODE_SIGN_IDENTITY = ".*"/CODE_SIGN_IDENTITY = "Temp Certificate"/g' Runner.xcodeproj/project.pbxproj
+
+          # 确保 CODE_SIGNING_ALLOWED 为 YES
+          sed -i '' 's/CODE_SIGNING_ALLOWED = NO;/CODE_SIGNING_ALLOWED = YES;/g' Runner.xcodeproj/project.pbxproj
+
+          echo "✅ Xcode 签名配置已注入虚拟信息"
+          cd ..
+
+      - name: 构建 iOS .app
+        run: |
+          # 此时不再需要 --no-codesign 参数，让 Flutter 使用我们伪造的签名环境
+          flutter build ios --release
+
+      - name: 修复二进制权限并打包 IPA
         run: |
           APP_PATH="./build/ios/iphoneos/Runner.app"
           
-          # 赋予执行权限
+          # 确保 Runner 有执行权限
           chmod +x "$APP_PATH/Runner"
           
-          # 🔥 关键步骤：强制指定二进制文件名为 Runner
+          # 修正 Info.plist 中的 CFBundleExecutable
           /usr/libexec/PlistBuddy -c "Set :CFBundleExecutable Runner" "$APP_PATH/Info.plist"
           
-          # 打包
+          # 打包成 IPA
           mkdir -p Payload
           cp -r "$APP_PATH" Payload/
           zip -r tvbox.ipa Payload
+          
           echo "✅ IPA 已生成，大小为:"
           ls -lh tvbox.ipa
 
