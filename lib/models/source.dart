@@ -18,7 +18,7 @@ class SiteRule {
   final String api;
   final String? searchUrl;
   final Map<String, String>? headers;
-  final int? playerType; // 0=web, 1=原生
+  final int? playerType;
 
   SiteRule({
     required this.key,
