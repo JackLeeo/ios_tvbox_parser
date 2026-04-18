@@ -17,7 +17,6 @@ class CategoryPage extends StatefulWidget {
 class _CategoryPageState extends State<CategoryPage> {
   late List<VideoItem> _videos = [];
   bool _isLoading = true;
-  int _currentCat = 1;
 
   @override
   void initState() {
