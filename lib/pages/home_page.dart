@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../models/video.dart';
 import '../models/source.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
+import '../services/log_service.dart';
 import '../widgets/video_card.dart';
 import '../widgets/loading_widget.dart';
 import 'category_page.dart';
@@ -13,7 +15,6 @@ import 'settings_page.dart';
 class HomePage extends StatefulWidget {
   final SourceConfig config;
   final String sourceInput;
-
   const HomePage({super.key, required this.config, required this.sourceInput});
 
   @override
@@ -24,7 +25,8 @@ class _HomePageState extends State<HomePage> {
   SiteRule? _currentSite;
   List<VideoItem> _videos = [];
   bool _isLoading = true;
-  int _currentCat = 1;
+  final LogService _log = LogService();
+  bool _showLogs = false;
 
   @override
   void initState() {
@@ -34,22 +36,21 @@ class _HomePageState extends State<HomePage> {
       _loadVideos();
     } else {
       setState(() => _isLoading = false);
+      _log.add('没有可用的站点');
     }
   }
 
   Future<void> _loadVideos() async {
     if (_currentSite == null) return;
     setState(() => _isLoading = true);
+    _log.clear();
+    _log.add('加载站点: ${_currentSite!.name}');
     final videos = await ApiService().getHomeList(_currentSite!, page: 1);
     setState(() {
       _videos = videos;
       _isLoading = false;
     });
-  }
-
-  void _switchCategory(int cat) {
-    setState(() => _currentCat = cat);
-    _loadVideos();
+    _log.add('最终显示 ${videos.length} 部影片');
   }
 
   void _changeSite(SiteRule site) {
@@ -84,49 +85,93 @@ class _HomePageState extends State<HomePage> {
             icon: const Icon(Icons.swap_vert),
             onSelected: _changeSite,
             itemBuilder: (context) => widget.config.sites.map((site) {
-              return PopupMenuItem(
-                value: site,
-                child: Text(site.name),
-              );
+              return PopupMenuItem(value: site, child: Text(site.name));
             }).toList(),
           ),
           IconButton(
             icon: const Icon(Icons.settings),
             onPressed: _openSettings,
           ),
+          IconButton(
+            icon: Icon(_showLogs ? Icons.terminal : Icons.terminal_outlined),
+            onPressed: () => setState(() => _showLogs = !_showLogs),
+          ),
         ],
       ),
-      body: _isLoading
-          ? const LoadingWidget()
-          : _videos.isEmpty
-              ? const Center(
-                  child: Text('暂无数据', style: TextStyle(color: Colors.grey)),
-                )
-              : GridView.builder(
-                  padding: const EdgeInsets.all(8),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    childAspectRatio: 0.6,
-                    crossAxisSpacing: 8,
-                    mainAxisSpacing: 8,
-                  ),
-                  itemCount: _videos.length,
-                  itemBuilder: (ctx, index) {
-                    final video = _videos[index];
-                    return VideoCard(
-                      video: video,
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => DetailPage(
-                            site: _currentSite!,
-                            video: video,
-                          ),
+      body: Column(
+        children: [
+          if (_showLogs)
+            Container(
+              height: 200,
+              color: Colors.grey[900],
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    color: Colors.black54,
+                    child: Row(
+                      children: [
+                        const Text('调试日志', style: TextStyle(color: Colors.white)),
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.copy, size: 18, color: Colors.white),
+                          onPressed: () {
+                            Clipboard.setData(ClipboardData(text: _log.export()));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('日志已复制')),
+                            );
+                          },
                         ),
+                        IconButton(
+                          icon: const Icon(Icons.clear, size: 18, color: Colors.white),
+                          onPressed: () => setState(() => _log.clear()),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(8),
+                      child: Text(
+                        _log.getLogs().join('\n'),
+                        style: const TextStyle(color: Colors.white70, fontSize: 12),
                       ),
-                    );
-                  },
-                ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          Expanded(
+            child: _isLoading
+                ? const LoadingWidget()
+                : _videos.isEmpty
+                    ? const Center(child: Text('暂无数据', style: TextStyle(color: Colors.grey)))
+                    : GridView.builder(
+                        padding: const EdgeInsets.all(8),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          childAspectRatio: 0.6,
+                          crossAxisSpacing: 8,
+                          mainAxisSpacing: 8,
+                        ),
+                        itemCount: _videos.length,
+                        itemBuilder: (ctx, index) {
+                          final video = _videos[index];
+                          return VideoCard(
+                            video: video,
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => DetailPage(site: _currentSite!, video: video),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+          ),
+        ],
+      ),
       bottomNavigationBar: BottomNavigationBar(
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: '首页'),
