@@ -16,15 +16,18 @@ public class NodeJsBridge: NSObject {
                 return
             }
 
-            // 准备参数：要执行的 JS 文件路径
             let scriptPath = nodePath + "/server.js"
-            let args = [scriptPath]
             
-            // 调用 C 函数 node_start
-            let argv = args.map { strdup($0) }
-            node_start(Int32(args.count), argv)
-            for ptr in argv { free(ptr) }
-
+            var cStrings = [scriptPath].map { strdup($0) }
+            cStrings.append(nil)
+            
+            cStrings.withUnsafeMutableBufferPointer { buffer in
+                guard let baseAddress = buffer.baseAddress else { return }
+                node_start(Int32(cStrings.count - 1), baseAddress)
+            }
+            
+            for ptr in cStrings where ptr != nil { free(ptr) }
+            
             DispatchQueue.main.async { result(true) }
         }
     }
