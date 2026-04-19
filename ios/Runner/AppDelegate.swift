@@ -9,9 +9,8 @@ import Flutter
   ) -> Bool {
     GeneratedPluginRegistrant.register(with: self)
 
-    // 注册 Node.js 桥接插件
     if let controller = window?.rootViewController as? FlutterViewController {
-        let registrar = controller.registrar(forPlugin: "com.example.my_tvbox/nodejs")!
+        let registrar = controller.registrar(forPlugin: "com.example.iosTvboxParser/nodejs")!
         NodeJsBridge.register(with: registrar)
     }
 
