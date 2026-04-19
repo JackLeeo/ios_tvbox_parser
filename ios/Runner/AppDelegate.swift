@@ -1,16 +1,20 @@
-import Flutter
 import UIKit
+import Flutter
 
-@main
-@objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
+@UIApplicationMain
+@objc class AppDelegate: FlutterAppDelegate {
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
-  }
+    GeneratedPluginRegistrant.register(with: self)
 
-  func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
-    GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    // 注册 Node.js 桥接插件
+    if let controller = window?.rootViewController as? FlutterViewController {
+        let registrar = controller.registrar(forPlugin: "com.example.my_tvbox/nodejs")!
+        NodeJsBridge.register(with: registrar)
+    }
+
+    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 }
