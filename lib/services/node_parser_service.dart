@@ -1,68 +1,62 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:node_flutter/node_flutter.dart';
+import 'package:flutter/services.dart';
 
 class NodeParserService {
   static final NodeParserService _instance = NodeParserService._internal();
   factory NodeParserService() => _instance;
   NodeParserService._internal();
 
+  final _methodChannel = const MethodChannel('com.example.my_tvbox/nodejs');
+  final _eventChannel = const EventChannel('com.example.my_tvbox/nodejs_events');
   final _readyCompleter = Completer<void>();
   final _pendingRequests = <String, Completer<Map<String, dynamic>>>{};
-  StreamSubscription? _subscription;
+  StreamSubscription? _eventSubscription;
 
   Future<void> init() async {
     if (_readyCompleter.isCompleted) return;
 
+    _eventSubscription = _eventChannel.receiveBroadcastStream().listen((event) {
+      final map = event as Map<dynamic, dynamic>;
+      final channel = map['channel'] as String;
+      final message = map['message'] as String;
+
+      if (channel == 'node_ready') {
+        _readyCompleter.complete();
+      } else if (channel == 'parse_result') {
+        final data = jsonDecode(message) as Map<String, dynamic>;
+        final requestId = data['requestId'] as String;
+        _pendingRequests[requestId]?.complete(data);
+        _pendingRequests.remove(requestId);
+      } else if (channel == 'parse_error') {
+        final error = jsonDecode(message) as Map<String, dynamic>;
+        final requestId = error['requestId'] as String;
+        _pendingRequests[requestId]?.completeError(error['error']);
+        _pendingRequests.remove(requestId);
+      }
+    });
+
     try {
-      await Nodejs.start();
-
-      _subscription = Nodejs.onMessageReceived.listen((event) {
-        final channel = event['channelName'] as String?;
-        final message = event['message'];
-
-        if (channel == 'node_ready') {
-          _readyCompleter.complete();
-        } else if (channel == 'parse_result') {
-          final data = message is String ? jsonDecode(message) : message as Map<String, dynamic>;
-          final requestId = data['requestId'] as String;
-          _pendingRequests[requestId]?.complete(data);
-          _pendingRequests.remove(requestId);
-        } else if (channel == 'parse_error') {
-          final error = message is String ? jsonDecode(message) : message as Map<String, dynamic>;
-          final requestId = error['requestId'] as String;
-          _pendingRequests[requestId]?.completeError(error['error']);
-          _pendingRequests.remove(requestId);
-        }
-      });
-
-      // 等待 Node.js 就绪，最多 5 秒，超时则放弃
-      await _readyCompleter.future.timeout(const Duration(seconds: 5));
+      await _methodChannel.invokeMethod('start');
+      await _readyCompleter.future.timeout(const Duration(seconds: 10));
       print('Node.js 引擎已就绪');
     } catch (e) {
-      print('Node.js 启动失败或超时: $e');
-      // 不抛出异常，后续请求将自动回退到公共解析接口
+      print('Node.js 启动失败: $e');
     }
   }
 
   Future<Map<String, dynamic>> _sendRequest(String action, Map<String, dynamic> payload) async {
-    // 如果 Node.js 未就绪，直接抛出异常（调用方会回退）
     if (!_readyCompleter.isCompleted) {
       throw Exception('Node.js 未就绪');
     }
-
     final requestId = DateTime.now().millisecondsSinceEpoch.toString();
     final request = jsonEncode({'requestId': requestId, 'action': action, 'payload': payload});
-
     final completer = Completer<Map<String, dynamic>>();
     _pendingRequests[requestId] = completer;
 
-    Nodejs.sendMessage('parse', request);
+    await _methodChannel.invokeMethod('sendMessage', {'channel': 'parse', 'message': request});
 
-    return completer.future.timeout(
-      const Duration(seconds: 30),
-      onTimeout: () => throw TimeoutException('Node.js 解析超时'),
-    );
+    return completer.future.timeout(const Duration(seconds: 30));
   }
 
   Future<Map<String, dynamic>> getHome(String rule, {int page = 1}) =>
@@ -78,7 +72,6 @@ class NodeParserService {
       _sendRequest('play', {'rule': rule, 'flag': flag, 'id': id});
 
   void dispose() {
-    _subscription?.cancel();
-    // node_flutter 不支持 stop，不调用
+    _eventSubscription?.cancel();
   }
 }
