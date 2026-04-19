@@ -36,7 +36,7 @@ jobs:
           unzip -o -q nodejs-mobile.zip
           rm nodejs-mobile.zip
           
-          # 验证解压后的结构
+          # 确保 .xcframework 存在
           if [ ! -d "NodeMobile.xcframework" ]; then
             echo "❌ NodeMobile.xcframework 未找到"
             echo "当前目录内容："
@@ -44,21 +44,27 @@ jobs:
             exit 1
           fi
           
-          echo "✅ NodeMobile.xcframework 下载并解压成功"
+          echo "✅ NodeMobile.xcframework 下载完成，位于 $(pwd)/NodeMobile.xcframework"
           cd ../..
 
       - name: Embed NodeMobile.xcframework in Xcode project
         run: |
           cd ios
+          # 获取框架的绝对路径（在 Ruby 中使用 ENV 传入）
+          export FRAMEWORK_ABSOLUTE_PATH="$(pwd)/Frameworks/NodeMobile.xcframework"
           ruby <<-'EOF'
           require 'xcodeproj'
           project_path = 'Runner.xcodeproj'
           project = Xcodeproj::Project.open(project_path)
           runner_target = project.targets.find { |t| t.name == 'Runner' }
           
-          # 添加 NodeMobile.xcframework 到 Frameworks 组
+          # 使用绝对路径创建文件引用
+          framework_path = ENV['FRAMEWORK_ABSOLUTE_PATH']
+          framework_ref = project.main_group.new_reference(framework_path)
+          
+          # 可选：将引用放入 Frameworks 组
           frameworks_group = project.main_group.groups.find { |g| g.name == 'Frameworks' } || project.main_group.new_group('Frameworks')
-          framework_ref = frameworks_group.new_file('Frameworks/NodeMobile.xcframework', :absolute)
+          framework_ref.move(frameworks_group) unless framework_ref.parent == frameworks_group
           
           # 添加到 "Link Binary With Libraries"
           runner_target.frameworks_build_phase.add_file_reference(framework_ref)
@@ -75,7 +81,6 @@ jobs:
           puts "✅ 已将 NodeMobile.xcframework 添加到 Xcode 项目"
           EOF
           cd ..
-
       - name: 安装 CocoaPods
         run: |
           gem install cocoapods
