@@ -18,15 +18,21 @@ public class NodeJsBridge: NSObject {
 
             let scriptPath = nodePath + "/server.js"
             
-            var cStrings = [scriptPath].map { strdup($0) }
-            cStrings.append(nil)
+            // 构造 char *argv[] 参数
+            let argv: [UnsafeMutablePointer<CChar>?] = [
+                strdup(scriptPath),
+                nil
+            ]
             
-            cStrings.withUnsafeMutableBufferPointer { buffer in
-                guard let baseAddress = buffer.baseAddress else { return }
-                node_start(Int32(cStrings.count - 1), baseAddress)
+            // 调用 node_start(int argc, char *argv[])
+            node_start(Int32(argv.count - 1), UnsafeMutablePointer(mutating: argv))
+            
+            // 释放内存
+            for ptr in argv {
+                if let ptr = ptr {
+                    free(ptr)
+                }
             }
-            
-            for ptr in cStrings where ptr != nil { free(ptr) }
             
             DispatchQueue.main.async { result(true) }
         }
