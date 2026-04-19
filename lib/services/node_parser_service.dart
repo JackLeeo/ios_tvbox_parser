@@ -33,9 +33,7 @@ class NodeParserService {
     int retries = 0;
     while (retries < 30) {
       try {
-        final response = await _dio.options.baseUrl.isEmpty
-            ? Future.error('no base url')
-            : _dio.get('/');
+        final response = await _dio.get('/');
         if (response.statusCode == 200 || response.statusCode == 404) {
           _ready = true;
           _readyCompleter.complete();
