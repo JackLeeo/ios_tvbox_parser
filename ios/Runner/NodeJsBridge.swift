@@ -4,11 +4,11 @@ import NodeMobile
 
 public class NodeJsBridge: NSObject {
     private static var eventSink: FlutterEventSink?
-    
+    
     @objc public static func register(with registrar: FlutterPluginRegistrar) {
-        let methodChannel = FlutterMethodChannel(name: "com.example.my_tvbox/nodejs", binaryMessenger: registrar.messenger())
-        let eventChannel = FlutterEventChannel(name: "com.example.my_tvbox/nodejs_events", binaryMessenger: registrar.messenger())
-        
+        let methodChannel = FlutterMethodChannel(name: "com.example.iosTvboxParser/nodejs", binaryMessenger: registrar.messenger())
+        let eventChannel = FlutterEventChannel(name: "com.example.iosTvboxParser/nodejs_events", binaryMessenger: registrar.messenger())
+        
         let instance = NodeJsBridge()
         registrar.addMethodCallDelegate(instance, channel: methodChannel)
         eventChannel.setStreamHandler(instance)
@@ -28,7 +28,7 @@ public class NodeJsBridge: NSObject {
                     NodeJsBridge.eventSink?(["channel": channel ?? "", "message": message ?? ""])
                 }
             }
-            
+            
             DispatchQueue.main.async { result(true) }
         }
     }
@@ -50,6 +50,7 @@ extension NodeJsBridge: FlutterStreamHandler {
         return nil
     }
 }
+
 extension NodeJsBridge: FlutterPlugin {
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         switch call.method {
