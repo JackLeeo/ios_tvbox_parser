@@ -4,7 +4,7 @@ import NodeMobile
 
 public class NodeJsBridge: NSObject {
     @objc public static func register(with registrar: FlutterPluginRegistrar) {
-        let methodChannel = FlutterMethodChannel(name: "com.example.my_tvbox/nodejs", binaryMessenger: registrar.messenger())
+        let methodChannel = FlutterMethodChannel(name: "com.example.iosTvboxParser/nodejs", binaryMessenger: registrar.messenger())
         let instance = NodeJsBridge()
         registrar.addMethodCallDelegate(instance, channel: methodChannel)
     }
