@@ -2,7 +2,6 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-// 加载 drpy2 引擎
 const drpyPath = path.join(__dirname, 'drpy2.min.js');
 if (fs.existsSync(drpyPath)) {
   require(drpyPath);
@@ -11,9 +10,7 @@ if (fs.existsSync(drpyPath)) {
   console.error('drpy2.min.js not found');
 }
 
-// 创建 HTTP 服务器
 const server = http.createServer((req, res) => {
-  // 设置 CORS 头，允许 Flutter 访问
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -24,7 +21,6 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 只处理 POST 请求到 /parse
   if (req.method === 'POST' && req.url === '/parse') {
     let body = '';
     req.on('data', chunk => body += chunk);
@@ -65,6 +61,4 @@ const PORT = 8765;
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`HTTP server running at http://127.0.0.1:${PORT}`);
 });
-
-// 向 Flutter 发送就绪信号（通过标准输出，Flutter 可以读取）
 console.log('NODE_READY');
