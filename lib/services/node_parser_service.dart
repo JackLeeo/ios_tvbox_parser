@@ -21,7 +21,6 @@ class NodeParserService {
   Future<void> init() async {
     if (_readyCompleter.isCompleted) return;
 
-    // 启动 Node.js 引擎（调用原生方法）
     try {
       await _methodChannel.invokeMethod('start');
     } catch (e) {
@@ -29,7 +28,6 @@ class NodeParserService {
       return;
     }
 
-    // 等待 HTTP 服务就绪（轮询直到连通）
     int retries = 0;
     while (retries < 30) {
       try {
@@ -41,7 +39,7 @@ class NodeParserService {
           return;
         }
       } catch (e) {
-        // 忽略错误，继续重试
+        // 继续重试
       }
       await Future.delayed(const Duration(milliseconds: 500));
       retries++;
