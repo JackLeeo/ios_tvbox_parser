@@ -9,7 +9,7 @@ class NodeParserService {
   NodeParserService._internal();
 
   final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 15),
+    connectTimeout: const Duration(seconds: 5),
     receiveTimeout: const Duration(seconds: 30),
     baseUrl: 'http://127.0.0.1:8765',
   ));
@@ -17,24 +17,9 @@ class NodeParserService {
   bool _ready = false;
   final _readyCompleter = Completer<void>();
   final _methodChannel = const MethodChannel('com.example.iosTvboxParser/nodejs');
-  final _eventChannel = const EventChannel('com.example.iosTvboxParser/nodejs_events');
-  StreamSubscription? _eventSubscription;
 
   Future<void> init() async {
     if (_readyCompleter.isCompleted) return;
-
-    // 监听来自 Node.js 的就绪消息
-    _eventSubscription = _eventChannel.receiveBroadcastStream().listen((event) {
-      final map = event as Map<dynamic, dynamic>;
-      final channel = map['channel'] as String;
-      final message = map['message'] as String;
-      
-      if (channel == 'node_ready') {
-        _ready = true;
-        _readyCompleter.complete();
-        print('Node.js 已就绪（通过事件）');
-      }
-    });
 
     try {
       await _methodChannel.invokeMethod('start');
@@ -43,33 +28,24 @@ class NodeParserService {
       return;
     }
 
-    // 等待就绪信号，超时 15 秒
-    try {
-      await _readyCompleter.future.timeout(const Duration(seconds: 15));
-    } catch (e) {
-      print('等待 Node.js 就绪超时，尝试轮询 HTTP');
-      await _waitForHttp();
-    }
-  }
-
-  Future<void> _waitForHttp() async {
+    // 轮询等待 HTTP 服务就绪
     int retries = 0;
-    while (retries < 20) {
+    while (retries < 40) {
       try {
         final response = await _dio.get('/');
         if (response.statusCode == 200 || response.statusCode == 404) {
           _ready = true;
           _readyCompleter.complete();
-          print('Node.js HTTP 服务已就绪（轮询）');
+          print('Node.js HTTP 服务已就绪');
           return;
         }
       } catch (e) {
-        // 继续
+        // 忽略连接错误，继续重试
       }
-      await Future.delayed(const Duration(milliseconds: 800));
+      await Future.delayed(const Duration(milliseconds: 500));
       retries++;
     }
-    print('Node.js HTTP 服务启动失败');
+    print('Node.js HTTP 服务启动超时');
   }
 
   Future<Map<String, dynamic>> _sendRequest(String action, Map<String, dynamic> payload) async {
@@ -104,7 +80,5 @@ class NodeParserService {
   Future<Map<String, dynamic>> getPlayUrl(String rule, String flag, String id) =>
       _sendRequest('play', {'rule': rule, 'flag': flag, 'id': id});
 
-  void dispose() {
-    _eventSubscription?.cancel();
-  }
+  void dispose() {}
 }
