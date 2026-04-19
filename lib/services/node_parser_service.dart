@@ -16,7 +16,7 @@ class NodeParserService {
 
   bool _ready = false;
   final _readyCompleter = Completer<void>();
-  final _methodChannel = const MethodChannel('com.example.my_tvbox/nodejs');
+  final _methodChannel = const MethodChannel('com.example.iosTvboxParser/nodejs');
 
   Future<void> init() async {
     if (_readyCompleter.isCompleted) return;
