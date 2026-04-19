@@ -7,8 +7,8 @@ class NodeParserService {
   factory NodeParserService() => _instance;
   NodeParserService._internal();
 
-  final _methodChannel = const MethodChannel('com.example.my_tvbox/nodejs');
-  final _eventChannel = const EventChannel('com.example.my_tvbox/nodejs_events');
+  final _methodChannel = const MethodChannel('com.example.iosTvboxParser/nodejs');
+  final _eventChannel = const EventChannel('com.example.iosTvboxParser/nodejs_events');
   final _readyCompleter = Completer<void>();
   final _pendingRequests = <String, Completer<Map<String, dynamic>>>{};
   StreamSubscription? _eventSubscription;
