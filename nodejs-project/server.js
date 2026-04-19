@@ -2,6 +2,14 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
+// 发送就绪信号到 Flutter（通过标准输出和通道）
+console.log('NODE_READY');
+
+// 如果存在 NodeMobile 通道，发送就绪消息
+if (typeof NodeMobile !== 'undefined' && NodeMobile.send) {
+  NodeMobile.send('node_ready', 'ok');
+}
+
 const drpyPath = path.join(__dirname, 'drpy2.min.js');
 if (fs.existsSync(drpyPath)) {
   require(drpyPath);
@@ -61,4 +69,3 @@ const PORT = 8765;
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`HTTP server running at http://127.0.0.1:${PORT}`);
 });
-console.log('NODE_READY');
