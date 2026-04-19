@@ -111,7 +111,8 @@ class ApiService {
       if (response.statusCode == 200) {
         final data = response.data;
         if (data is Map && (data['code'] == 1 || data['code'] == 200)) {
-          return _parseEpisodes(data);
+          // 修复：显式转换为 Map<String, dynamic>
+          return _parseEpisodes(Map<String, dynamic>.from(data));
         }
       }
       return [];
